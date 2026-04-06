@@ -2,12 +2,13 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState } from '../store';
-import { updateProgress } from '../store/slices/orderSlice';
+import { updateProgress, setOrderStatus } from '../store/slices/orderSlice';
 import axios from 'axios';
+import { formatInr } from '../utils/currency';
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
-const OrderStatusPage: React.FC = () => {
+  const OrderStatusPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   
@@ -23,11 +24,39 @@ const OrderStatusPage: React.FC = () => {
       try {
         const res = await axios.get(`${API_BASE_URL}/orders`);
         const latestOrder = res.data.find((o: any) => o.id === order.id);
-        if (latestOrder && latestOrder.status === 'Served') {
-          dispatch(updateProgress({ progress: 100, statusText: 'Your meal is served!' }));
-        } else if (progress < 95) {
-          // Keep a slow "preparing" progress for visual appeal, but cap it at 95 until Served
-          dispatch(updateProgress({ progress: progress + 1, statusText: 'Preparing your meal...' }));
+        
+        if (latestOrder) {
+          // Sync backend status to Redux
+          if (latestOrder.status !== order.status) {
+            dispatch(setOrderStatus(latestOrder.status));
+          }
+
+          // Map status to progress for a better UX
+          let targetProgress = progress;
+          let statusText = progress < 95 ? 'Preparing your meal...' : 'Finishing touches...';
+
+          switch (latestOrder.status) {
+            case 'Pending':
+              targetProgress = Math.max(progress, 15);
+              statusText = 'Order received by kitchen';
+              break;
+            case 'Preparing':
+              targetProgress = Math.max(progress, 55);
+              statusText = 'Chef is preparing your meal';
+              break;
+            case 'Ready':
+              targetProgress = Math.max(progress, 90);
+              statusText = 'Order is ready to serve!';
+              break;
+            case 'Served':
+              targetProgress = 100;
+              statusText = 'Your meal is served!';
+              break;
+          }
+
+          if (targetProgress !== progress) {
+            dispatch(updateProgress({ progress: targetProgress, statusText }));
+          }
         }
       } catch (error) {
         console.error('Error polling status:', error);
@@ -40,6 +69,12 @@ const OrderStatusPage: React.FC = () => {
 
   if (!order) return null;
 
+  // Defensive values for UI
+  const orderId = order.id ? order.id.toString().slice(-4) : '....';
+  const tableId = order.tableId || 'General';
+  const customerName = order.customerName || 'Guest';
+  const totalAmount = Number(order.total || 0);
+
   return (
     <div className="animate-slide-up" style={{ 
       padding: '24px', 
@@ -49,10 +84,11 @@ const OrderStatusPage: React.FC = () => {
       background: 'white'
     }}>
       <header style={{ marginBottom: '40px', textAlign: 'center' }}>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '4px' }}>Order <span style={{ color: 'var(--primary)' }}>#1234</span></h2>
-        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Table {order.tableId} • {order.customerName}</p>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '4px' }}>Order <span style={{ color: 'var(--primary)' }}>#{orderId}</span></h2>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Table {tableId} • {customerName}</p>
       </header>
 
+      {/* ... previous progress circle code ... */}
       <div className="glass-card" style={{ textAlign: 'center', marginBottom: '32px', border: 'none', background: '#F8F9FA' }}>
         <div style={{ position: 'relative', width: '160px', height: '160px', margin: '0 auto 24px' }}>
           <svg style={{ transform: 'rotate(-90deg)', width: '100%', height: '100%' }}>
@@ -83,29 +119,29 @@ const OrderStatusPage: React.FC = () => {
           </div>
         </div>
         <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '8px', color: 'var(--primary)' }}>{order.status}</h3>
-        <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>We're crafting your perfect meal.</p>
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{progress >= 100 ? 'Enjoy your meal!' : 'We\'re crafting your perfect meal.'}</p>
       </div>
 
       <div style={{ flex: 1 }}>
         <h4 style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '1px' }}>Your Selection</h4>
         <div style={{ background: '#F9F9F9', borderRadius: '16px', padding: '16px', display: 'grid', gap: '12px' }}>
-          {order.items.map((item: any, idx: number) => (
+          {(order.items || []).map((item: any, idx: number) => (
             <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden' }}>
-                  <img src={item.image} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <div style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', background: '#EEE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <img src={item.image} alt={item.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                 </div>
                 <div>
                   <div style={{ fontSize: '0.9rem', fontWeight: '600' }}>{item.quantity}x {item.name}</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>${item.price.toFixed(2)} each</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{formatInr(item.price)} each</div>
                 </div>
               </div>
-              <div style={{ fontWeight: '700', fontSize: '0.95rem' }}>${(item.price * item.quantity).toFixed(2)}</div>
+              <div style={{ fontWeight: '700', fontSize: '0.95rem' }}>{formatInr(item.price * item.quantity)}</div>
             </div>
           ))}
           <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #EEE', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontWeight: '700', fontSize: '1.1rem' }}>Total</span>
-            <span style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--primary)' }}>${order.total.toFixed(2)}</span>
+            <span style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--primary)' }}>{formatInr(totalAmount)}</span>
           </div>
         </div>
       </div>

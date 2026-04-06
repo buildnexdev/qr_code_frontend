@@ -4,13 +4,16 @@ import axios from 'axios';
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
-interface FoodItem {
+/** Matches qr-backend GET /api/menu (admin Menu) */
+export interface FoodItem {
   id: number;
   name: string;
   price: number;
   category: string;
   description: string;
   image: string;
+  /** false = unavailable in admin */
+  status?: boolean;
 }
 
 interface MenuState {
@@ -43,10 +46,13 @@ const menuSlice = createSlice({
       })
       .addCase(fetchMenu.fulfilled, (state, action: PayloadAction<FoodItem[]>) => {
         state.loading = false;
-        state.items = action.payload;
-        // Dynamically update categories if needed, or keep the fixed list
-        const fetchedCategories = Array.from(new Set(action.payload.map(item => item.category)));
-        state.categories = ['All', ...fetchedCategories];
+        // Admin toggles availability → `status: false` hides item here
+        const normalized = action.payload.filter((item) => item.status !== false);
+        state.items = normalized;
+        const fetchedCategories = Array.from(
+          new Set(normalized.map((item) => item.category).filter(Boolean))
+        );
+        state.categories = fetchedCategories.length ? ['All', ...fetchedCategories] : ['All'];
       })
       .addCase(fetchMenu.rejected, (state, action) => {
         state.loading = false;

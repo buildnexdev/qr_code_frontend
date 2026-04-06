@@ -19,7 +19,7 @@ const initialState: OrderState = {
 
 export const submitOrder = createAsyncThunk('order/submitOrder', async (order: any) => {
   const response = await axios.post(`${API_BASE_URL}/orders`, order);
-  return response.data;
+  return { ...order, ...response.data };
 });
 
 const orderSlice = createSlice({
@@ -30,6 +30,12 @@ const orderSlice = createSlice({
       state.progress = action.payload.progress;
       if (state.currentOrder) {
         state.currentOrder.status = action.payload.statusText;
+        localStorage.setItem('currentOrder', JSON.stringify(state.currentOrder));
+      }
+    },
+    setOrderStatus: (state, action: PayloadAction<string>) => {
+      if (state.currentOrder) {
+        state.currentOrder.status = action.payload;
         localStorage.setItem('currentOrder', JSON.stringify(state.currentOrder));
       }
     },
@@ -57,5 +63,5 @@ const orderSlice = createSlice({
   }
 });
 
-export const { updateProgress, clearOrder } = orderSlice.actions;
+export const { updateProgress, clearOrder, setOrderStatus } = orderSlice.actions;
 export default orderSlice.reducer;

@@ -6,15 +6,19 @@ import { addToCart, removeFromCart } from '../store/slices/cartSlice';
 import { submitOrder } from '../store/slices/orderSlice';
 import { fetchMenu } from '../store/slices/menuSlice';
 import type { AppDispatch } from '../store';
+import { formatInr } from '../utils/currency';
+
+const MENU_IMG_FALLBACK =
+  'https://images.unsplash.com/photo-1493770348161-369560ae357d?w=800&q=80';
 
 const MenuPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   
-  const { items: MOCK_FOODS, categories, loading: menuLoading } = useSelector((state: RootState) => state.menu);
+  const { items: menuItems, categories, loading: menuLoading } = useSelector((state: RootState) => state.menu);
   const cartItems = useSelector((state: RootState) => state.cart.items);
   const { totalAmount: totalPrice, totalQuantity: totalItems } = useSelector((state: RootState) => state.cart);
-  const { name: customerName, tableId } = useSelector((state: RootState) => state.user);
+  const { name: customerName, tableId, partySize } = useSelector((state: RootState) => state.user);
 
   const [activeCategory, setActiveCategory] = useState('All');
 
@@ -27,15 +31,19 @@ const MenuPage: React.FC = () => {
 
   const cartMap = cartItems.reduce((acc, item) => ({ ...acc, [item.id]: item.quantity }), {} as { [key: number]: number });
 
-  const filteredFoods = activeCategory === 'All' 
-    ? MOCK_FOODS 
-    : MOCK_FOODS.filter(f => f.category === activeCategory);
+  const filteredFoods =
+    activeCategory === 'All'
+      ? menuItems
+      : menuItems.filter((f) => f.category === activeCategory);
 
   const handleSubmitOrder = () => {
     if (totalItems === 0) return;
     
+    const label =
+      partySize > 1 ? `${customerName} (${partySize} guests)` : customerName;
+
     const order = {
-      customerName,
+      customerName: label,
       tableId,
       items: cartItems,
       total: totalPrice,
@@ -72,7 +80,9 @@ const MenuPage: React.FC = () => {
         <div onClick={() => navigate('/')} style={{ cursor: 'pointer', fontSize: '1.2rem' }}>←</div>
         <div style={{ textAlign: 'center' }}>
           <h2 style={{ fontSize: '1.1rem', fontWeight: '700' }}>Table {tableId}</h2>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{customerName}</p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            {partySize} guest{partySize !== 1 ? 's' : ''} · {customerName}
+          </p>
         </div>
         <div style={{ width: '24px' }}></div>
       </header>
@@ -109,8 +119,16 @@ const MenuPage: React.FC = () => {
       {/* Food Grid */}
       <div style={{ padding: '0 20px', display: 'grid', gap: '24px' }}>
         {menuLoading ? (
-          <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Loading menu...</div>
-        ) : filteredFoods.map(food => (
+          <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Loading menu…</div>
+        ) : filteredFoods.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '48px 20px', color: 'var(--text-muted)' }}>
+            <p style={{ fontSize: '1.05rem', marginBottom: '8px', color: 'var(--text)' }}>No dishes available</p>
+            <p style={{ fontSize: '0.9rem' }}>
+              The restaurant has not published menu items yet, or everything is marked unavailable in admin.
+            </p>
+          </div>
+        ) : (
+          filteredFoods.map((food) => (
           <div key={food.id} className="animate-scale-in" style={{
             display: 'flex',
             flexDirection: 'column',
@@ -120,19 +138,47 @@ const MenuPage: React.FC = () => {
             border: '1px solid #F0F0F0',
             boxShadow: '0 4px 15px rgba(0,0,0,0.03)'
           }}>
-            <div style={{ position: 'relative' }}>
-              <img src={food.image} alt={food.name} style={{ width: '100%', height: '180px', objectFit: 'cover' }} />
-              <div style={{ 
-                position: 'absolute', 
-                bottom: '12px', 
-                right: '12px', 
-                background: 'rgba(255,255,255,0.9)', 
-                padding: '6px 12px', 
-                borderRadius: '12px',
-                fontWeight: '700',
-                color: 'var(--primary)'
-              }}>
-                ${food.price.toFixed(2)}
+            <div
+              style={{
+                position: 'relative',
+                width: '100%',
+                minHeight: '200px',
+                height: 'min(48vw, 280px)',
+                background: '#F2F2F2',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <img
+                src={food.image?.trim() ? food.image : MENU_IMG_FALLBACK}
+                alt={food.name}
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  width: 'auto',
+                  height: 'auto',
+                  objectFit: 'contain',
+                  display: 'block',
+                }}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = MENU_IMG_FALLBACK;
+                }}
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: '12px',
+                  right: '12px',
+                  background: 'rgba(255,255,255,0.95)',
+                  padding: '6px 12px',
+                  borderRadius: '12px',
+                  fontWeight: '700',
+                  color: 'var(--primary)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                }}
+              >
+                {formatInr(food.price)}
               </div>
             </div>
             <div style={{ padding: '16px' }}>
@@ -168,7 +214,8 @@ const MenuPage: React.FC = () => {
               </div>
             </div>
           </div>
-        ))}
+          ))
+        )}
       </div>
 
       {/* Floating Cart Button */}
@@ -195,7 +242,7 @@ const MenuPage: React.FC = () => {
             </div>
             <div>
               <div style={{ fontSize: '0.75rem', opacity: 0.9 }}>Items selected</div>
-              <div style={{ fontSize: '1.2rem', fontWeight: '700' }}>${totalPrice.toFixed(2)}</div>
+              <div style={{ fontSize: '1.2rem', fontWeight: '700' }}>{formatInr(totalPrice)}</div>
             </div>
           </div>
           <div style={{ fontWeight: '700', letterSpacing: '1px' }}>

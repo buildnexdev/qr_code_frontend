@@ -26,24 +26,27 @@ const cartSlice = createSlice({
   reducers: {
     addToCart: (state, action: PayloadAction<any>) => {
       const existingItem = state.items.find((item) => item.id === action.payload.id);
+      const price = Number(action.payload.price || 0);
+      
       if (existingItem) {
         existingItem.quantity++;
       } else {
-        state.items.push({ ...action.payload, quantity: 1 });
+        state.items.push({ ...action.payload, price, quantity: 1 });
       }
       state.totalQuantity++;
-      state.totalAmount += action.payload.price;
+      state.totalAmount += price;
     },
     removeFromCart: (state, action: PayloadAction<number>) => {
       const existingItem = state.items.find((item) => item.id === action.payload);
       if (existingItem) {
+        const price = Number(existingItem.price || 0);
         if (existingItem.quantity === 1) {
           state.items = state.items.filter((item) => item.id !== action.payload);
         } else {
           existingItem.quantity--;
         }
         state.totalQuantity--;
-        state.totalAmount -= existingItem.price;
+        state.totalAmount -= price;
       }
     },
     clearCart: (state) => {

@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import type { RootState } from '../store';
 import { clearOrder } from '../store/slices/orderSlice';
 import { clearCart } from '../store/slices/cartSlice';
+import { formatInr } from '../utils/currency';
 
 const BillPage: React.FC = () => {
   const navigate = useNavigate();
@@ -11,7 +12,6 @@ const BillPage: React.FC = () => {
   
   const { currentOrder: order } = useSelector((state: RootState) => state.order);
   const [isPaid, setIsPaid] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('');
 
   useEffect(() => {
     if (!order) {
@@ -19,8 +19,7 @@ const BillPage: React.FC = () => {
     }
   }, [navigate, order]);
 
-  const handlePay = (method: string) => {
-    setPaymentMethod(method);
+  const handlePay = () => {
     setIsPaid(true);
     setTimeout(() => {
       dispatch(clearOrder());
@@ -93,21 +92,21 @@ const BillPage: React.FC = () => {
           {order.items.map((item: any, idx: number) => (
             <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem' }}>
               <span style={{ color: 'var(--text-muted)' }}>{item.quantity}x <span style={{ color: 'var(--text)', fontWeight: '600' }}>{item.name}</span></span>
-              <span style={{ fontWeight: '700' }}>${(item.price * item.quantity).toFixed(2)}</span>
+              <span style={{ fontWeight: '700' }}>{formatInr(item.price * item.quantity)}</span>
             </div>
           ))}
           <div style={{ borderTop: '1px dashed #DDD', marginTop: '16px', paddingTop: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', marginBottom: '8px' }}>
               <span style={{ color: 'var(--text-muted)' }}>Subtotal</span>
-              <span style={{ fontWeight: '600' }}>${order.total.toFixed(2)}</span>
+              <span style={{ fontWeight: '600' }}>{formatInr(order.total)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', marginBottom: '16px' }}>
               <span style={{ color: 'var(--text-muted)' }}>Service Tax (5%)</span>
-              <span style={{ fontWeight: '600' }}>${tax.toFixed(2)}</span>
+              <span style={{ fontWeight: '600' }}>{formatInr(tax)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontWeight: '700', fontSize: '1.1rem' }}>Total Amount</span>
-              <span style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--primary)' }}>${grandTotal.toFixed(2)}</span>
+              <span style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--primary)' }}>{formatInr(grandTotal)}</span>
             </div>
           </div>
         </div>
@@ -118,7 +117,7 @@ const BillPage: React.FC = () => {
         <div style={{ display: 'grid', gap: '12px' }}>
           <button 
             className="animate-scale-in"
-            onClick={() => handlePay('QR')}
+            onClick={() => handlePay()}
             style={{ 
               display: 'flex', 
               alignItems: 'center', 
@@ -143,7 +142,7 @@ const BillPage: React.FC = () => {
 
           <button 
             className="animate-scale-in"
-            onClick={() => handlePay('Cash')}
+            onClick={() => handlePay()}
             style={{ 
               display: 'flex', 
               alignItems: 'center', 
